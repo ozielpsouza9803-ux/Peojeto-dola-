@@ -451,3 +451,46 @@ export async function fetchGalleryFromSupabase(): Promise<GalleryPhotoRecord[]> 
   }
 }
 
+/**
+ * Salva e atualiza as configurações do site, banners, carrossel e PIX na tabela 'site_settings' do Supabase
+ */
+export async function updateSiteSettingsInSupabase(slidesData: any) {
+  try {
+    // 1. Tentar via backend proxy se disponível
+    try {
+      const apiRes = await fetch('/api/supabase/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slides: slidesData })
+      });
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        return { data: json.data, error: null };
+      }
+    } catch {
+      // Prosseguir para cliente Supabase direto
+    }
+
+    // 2. Fallback via cliente Supabase direto
+    const { data: existing } = await supabase.from('site_settings').select('id').limit(1);
+    const targetId = existing?.[0]?.id;
+
+    if (targetId) {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .update({ slides: slidesData, updated_at: new Date().toISOString() })
+        .eq('id', targetId)
+        .select();
+      return { data: data?.[0] || null, error };
+    } else {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .insert({ slides: slidesData, updated_at: new Date().toISOString() })
+        .select();
+      return { data: data?.[0] || null, error };
+    }
+  } catch (err: any) {
+    return { data: null, error: err?.message || 'Erro ao salvar configurações do site.' };
+  }
+}
+

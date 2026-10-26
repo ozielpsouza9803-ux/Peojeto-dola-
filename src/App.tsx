@@ -26,6 +26,7 @@ import {
   updateProfileInSupabase, 
   uploadGalleryPhotoToSupabase,
   deleteGalleryPhotoFromSupabase,
+  updateSiteSettingsInSupabase,
   GalleryPhotoRecord,
   DEFAULT_ADMIN_PROFILE_ID, 
   DEFAULT_FAMILY_PROFILE_ID, 
@@ -1386,6 +1387,32 @@ export default function App() {
     loadSupabaseData();
   }, []);
 
+  const persistSiteSettingsToSupabase = async (
+    currentBanners = banners,
+    currentStories = stories916,
+    currentPix = { key: pixKey, name: pixBankName, msg: donationCustomMessage, qr: pixQrCode }
+  ) => {
+    const slidesPayload = {
+      s: currentBanners.map(b => ({
+        id: b.id,
+        img: b.image,
+        image: b.image,
+        k: b.title,
+        title: b.title,
+        t: b.subtitle,
+        subtitle: b.subtitle,
+        badge: b.badge
+      })),
+      stories_916: currentStories,
+      pix: currentPix
+    };
+
+    const res = await updateSiteSettingsInSupabase(slidesPayload);
+    if (res.error) {
+      console.warn('Nota ao salvar site_settings no Supabase:', res.error);
+    }
+  };
+
 
   // Estados para Editor de Fotos e Gestor de Mídias
   const [photoEditorImg, setPhotoEditorImg] = useState<string>('https://images.unsplash.com/photo-1544717305-2782549b5136?w=500&h=500&fit=crop');
@@ -1569,8 +1596,10 @@ export default function App() {
         subtitle: newBannerSubtitle || 'Registrado pela Câmera Oficial',
         badge: newBannerBadge || 'Novo'
       };
-      setBanners(prev => [newBanner, ...prev]);
-      setNotification('Foto adicionada ao Carrossel de Banners!');
+      const updatedBanners = [newBanner, ...banners];
+      setBanners(updatedBanners);
+      persistSiteSettingsToSupabase(updatedBanners);
+      setNotification('Foto adicionada ao Carrossel de Banners e salva no Supabase!');
       confetti({ particleCount: 40, spread: 50 });
     } else if (dest === 'media916') {
       const newStory: Media916 = {
@@ -1580,8 +1609,10 @@ export default function App() {
         title: newStoryTitle || 'Momento Especial',
         subtitle: newStorySubtitle || 'Lar Esperança'
       };
-      setStories916(prev => [newStory, ...prev]);
-      setNotification('Foto adicionada aos Stories 9:16 da Home!');
+      const updatedStories = [newStory, ...stories916];
+      setStories916(updatedStories);
+      persistSiteSettingsToSupabase(banners, updatedStories);
+      setNotification('Foto adicionada aos Stories 9:16 e salva no Supabase!');
       confetti({ particleCount: 40, spread: 50 });
     } else if (dest === 'profile') {
       setAdminAvatar(cameraCapturedImage);
@@ -2539,10 +2570,12 @@ export default function App() {
         subtitle: newBannerSubtitle || 'Amor e acolhimento para nossas crianças.',
         badge: newBannerBadge || 'Destaque'
       };
-      setBanners(prev => [newSlide, ...prev]);
+      const updatedBanners = [newSlide, ...banners];
+      setBanners(updatedBanners);
+      await persistSiteSettingsToSupabase(updatedBanners);
       setNewBannerTitle('');
       setNewBannerSubtitle('');
-      setNotification('Nova foto adicionada ao carrossel com sucesso!');
+      setNotification('Nova foto adicionada ao carrossel e salva no Supabase!');
       confetti({ particleCount: 40, spread: 50 });
     }
   };
@@ -2633,10 +2666,12 @@ export default function App() {
         title: newStoryTitle || 'Momento Especial',
         subtitle: newStorySubtitle || 'Formato 9:16 direto da galeria'
       };
-      setStories916(prev => [newStory, ...prev]);
+      const updatedStories = [newStory, ...stories916];
+      setStories916(updatedStories);
+      await persistSiteSettingsToSupabase(banners, updatedStories);
       setNewStoryTitle('');
       setNewStorySubtitle('');
-      setNotification('Mídia 9:16 adicionada com sucesso!');
+      setNotification('Mídia 9:16 adicionada e salva no Supabase com sucesso!');
       confetti({ particleCount: 40, spread: 50 });
     }
   };
@@ -5541,8 +5576,10 @@ export default function App() {
                                   setNotification('Mantenha pelo menos um banner ativo.');
                                   return;
                                 }
-                                setBanners(banners.filter((_, i) => i !== idx));
-                                setNotification('Banner removido.');
+                                const updatedBanners = banners.filter((_, i) => i !== idx);
+                                setBanners(updatedBanners);
+                                persistSiteSettingsToSupabase(updatedBanners);
+                                setNotification('Banner removido e atualizado no Supabase.');
                               }}
                               className="p-1.5 rounded-lg bg-red-600 text-white ml-2 shrink-0"
                             >
@@ -5585,7 +5622,14 @@ export default function App() {
                       <label className="text-amber-200">URL do QR Code PIX</label>
                       <input type="text" value={pixQrCode} onChange={(e) => setPixQrCode(e.target.value)} className="w-full bg-[#1A1033] border border-amber-500/30 rounded-xl px-3 py-2.5 text-white mt-1" />
                     </div>
-                    <button onClick={() => setNotification('Dados do PIX e mensagem atualizados!')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 font-bold text-white shadow active:scale-[0.98]">
+                    <button 
+                      onClick={async () => {
+                        await persistSiteSettingsToSupabase(banners, stories916, { key: pixKey, name: pixBankName, msg: donationCustomMessage, qr: pixQrCode });
+                        setNotification('Dados do PIX e mensagem salvos no Supabase com sucesso!');
+                        confetti({ particleCount: 30, spread: 40 });
+                      }} 
+                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 font-bold text-white shadow active:scale-[0.98]"
+                    >
                       Salvar Alterações do PIX
                     </button>
                   </div>

@@ -261,6 +261,33 @@ async function startServer() {
     }
   });
 
+  app.put('/api/supabase/settings', async (req, res) => {
+    try {
+      const { slides } = req.body;
+      const { data: existing } = await serverSupabase.from('site_settings').select('id').limit(1);
+      const targetId = existing?.[0]?.id;
+
+      if (targetId) {
+        const { data, error } = await serverSupabase
+          .from('site_settings')
+          .update({ slides, updated_at: new Date().toISOString() })
+          .eq('id', targetId)
+          .select();
+        if (error) return res.status(400).json({ error: error.message });
+        return res.json({ data: data?.[0] || null });
+      } else {
+        const { data, error } = await serverSupabase
+          .from('site_settings')
+          .insert({ slides, updated_at: new Date().toISOString() })
+          .select();
+        if (error) return res.status(400).json({ error: error.message });
+        return res.json({ data: data?.[0] || null });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Internal error' });
+    }
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
